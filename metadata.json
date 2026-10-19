@@ -1,0 +1,8 @@
+{
+  "name": "Remix GST 상변환 메모리 시뮬레이터",
+  "description": "GST(Ge-Sb-Te) 소재의 비정질/결정질 상변환에 따른 원자 배열 변화와 전기 저항의 관계를 탐구하는 과학적 개념 모델 시뮬레이션 웹페이지",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
