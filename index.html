@@ -1,20 +1,781 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GST 소재의 원자 배열 변화와 전기 저항 - 상변환 메모리 시뮬레이션</title>
-    <meta name="description" content="고등학교 과학적 모델링 탐구 발표용: GST 소재의 비정질/결정질 상변환에 따른 원자 배열과 전기 저항의 관계를 직관적으로 비교하는 개념 모델 시뮬레이션" />
-    <meta property="og:title" content="GST 소재의 원자 배열 변화와 전기 저항" />
-    <meta property="og:description" content="GST 소재의 비정질 및 결정질 상태 원자 배열과 전기 저항의 상관관계를 탐구하는 과학적 시뮬레이터" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-  </head>
-  <body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900 font-sans">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GST 소재의 원자 배열 변화와 전기 저항 - 상변환 메모리 시뮬레이션</title>
+  <meta name="description" content="고등학교 과학 탐구: GST 상변환 메모리(PRAM) 원자 배열과 전기 저항 시뮬레이터">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Pretendard", sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      line-height: 1.6;
+      padding: 16px;
+    }
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    header {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      margin-bottom: 6px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .desc {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-top: 4px;
+      max-width: 700px;
+    }
+    .state-switcher {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .state-btn {
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 2px solid #334155;
+      background: #1e293b;
+      color: #94a3b8;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .state-btn small {
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: inherit;
+      opacity: 0.85;
+    }
+    .state-btn.active-amorph {
+      background: #1e1b4b;
+      border-color: #6366f1;
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.35);
+    }
+    .state-btn.active-cryst {
+      background: #022c22;
+      border-color: #10b981;
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+    }
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 840px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .canvas-wrapper {
+      background: #030712;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    svg.atomic-svg {
+      width: 100%;
+      max-width: 440px;
+      height: 440px;
+      user-select: none;
+    }
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      margin-top: 12px;
+      font-size: 0.8rem;
+    }
+    .filter-btn, .pill-btn {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-btn.active, .pill-btn.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      font-size: 0.8rem;
+    }
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+    .status-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .stat-box {
+      background: #030712;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .stat-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin: 4px 0;
+    }
+    .stat-desc {
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      margin: 28px 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 12px 0;
+    }
+    input[type=range] {
+      flex: 1;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .pulse-diagram, .iv-diagram {
+      width: 100%;
+      height: auto;
+      max-height: 220px;
+      background: #030712;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 8px;
+    }
+    .quiz-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .quiz-opt {
+      width: 100%;
+      text-align: left;
+      padding: 10px 14px;
+      margin-top: 8px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .quiz-opt:hover {
+      background: #334155;
+    }
+    .quiz-opt.correct {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #a7f3d0;
+      font-weight: 700;
+    }
+    .quiz-opt.wrong {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: #f43f5e;
+      color: #fecdd3;
+    }
+    .explanation {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #030712;
+      border-left: 3px solid #38bdf8;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+    .disclaimer-box {
+      margin-top: 30px;
+      padding: 14px 18px;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 12px;
+      font-size: 0.8rem;
+      color: #fcd34d;
+      line-height: 1.5;
+    }
+    footer {
+      text-align: center;
+      padding: 24px 0;
+      color: #64748b;
+      font-size: 0.75rem;
+      border-top: 1px solid #1e293b;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <span class="badge">고등학교 2학년 과학적 모델링 탐구 발표용</span>
+        <h1>「GST 소재의 원자 배열 변화와 전기 저항」</h1>
+        <p class="desc">
+          상변환 메모리(PRAM)의 핵심 소재인 <strong>Ge₂Sb₂Te₅(GST)</strong>의 비정질/결정질 상변환에 따른 원자 배열의 규칙성과 전기 저항의 관계를 직관적으로 비교·탐구하는 시뮬레이터입니다.
+        </p>
+      </div>
+      <div>
+        <span style="font-size: 11px; color: #10b981; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 12px; border-radius: 8px; font-weight: 600;">
+          ✓ 오프라인 & 깃허브 무설치 호환 단일 파일
+        </span>
+      </div>
+    </header>
 
+    <!-- State Switcher -->
+    <div class="state-switcher">
+      <button id="btnAmorph" class="state-btn active-amorph" onclick="setState('amorphous')">
+        <span>비정질 상태 (Amorphous)</span>
+        <small>RESET 상태 · 불규칙한 원자 배열 · 고저항 (High R)</small>
+      </button>
+      <button id="btnCryst" class="state-btn" onclick="setState('crystalline')">
+        <span>결정질 상태 (Crystalline)</span>
+        <small>SET 상태 · 규칙적인 격자 배열 · 저저항 (Low R)</small>
+      </button>
+    </div>
+
+    <!-- Main Sandbox Grid -->
+    <div class="main-grid">
+      <!-- 2D Atomic Arrangement -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⚛️ GST 2차원 원자 배열 모델</div>
+          <div class="legend">
+            <span><span class="dot" style="background:#06b6d4;"></span>Ge</span>
+            <span><span class="dot" style="background:#8b5cf6;"></span>Sb</span>
+            <span><span class="dot" style="background:#f59e0b;"></span>Te</span>
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <svg id="atomicCanvas" class="atomic-svg" viewBox="0 0 500 500"></svg>
+        </div>
+
+        <div class="controls-row">
+          <div style="display:flex; gap:6px;">
+            <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
+            <button class="filter-btn" onclick="setFilter('Ge', this)">Ge</button>
+            <button class="filter-btn" onclick="setFilter('Sb', this)">Sb</button>
+            <button class="filter-btn" onclick="setFilter('Te', this)">Te</button>
+          </div>
+          <div>
+            <button id="btnElectron" class="pill-btn active" onclick="toggleElectrons()">
+              ⚡ 전자 흐름 가시화: ON
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- State Characteristics Side Panel -->
+      <div class="status-stack">
+        <div class="stat-box">
+          <div class="stat-label">원자 배열 구조 (Atomic Order)</div>
+          <div id="statOrder" class="stat-val" style="color: #a5b4fc;">불규칙함 (Disordered)</div>
+          <div id="descOrder" class="stat-desc">
+            원자들이 얽혀 장거리 주기성이 파괴되어 있으며 국재화된 결합을 형성합니다.
+          </div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-label">전기 저항 특성 (Electrical Resistance)</div>
+          <div id="statResist" class="stat-val" style="color: #f59e0b;">매우 높음 (High R)</div>
+          <div id="descResist" class="stat-desc">
+            국재화된 공유 결합과 트랩 준위로 전자가 산란되어 전류가 거의 흐르지 않습니다.
+          </div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-label">PRAM 메모리 논리값</div>
+          <div id="statBit" class="stat-val" style="color: #38bdf8;">'0' (RESET)</div>
+          <div id="descBit" class="stat-desc">
+            전류가 거의 흐르지 않는 고저항 오프(OFF) 상태를 2진수 '0'으로 인식합니다.
+          </div>
+        </div>
+
+        <div class="stat-box" style="background: rgba(15, 23, 42, 0.6);">
+          <div class="stat-label">결합 물리적 메커니즘</div>
+          <div id="descBond" class="stat-desc" style="margin-top: 6px; font-size: 0.85rem;">
+            국재화된 공유 결합(Localized Covalent): 전자가 특정 원자 사이에 갇혀 자유로운 전도가 제한됨.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thermal Pulse Viewer -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header">
+        <div class="card-title">🔥 줄 가열(Joule Heating)과 온도-시간 열 펄스 프로파일</div>
+        <div style="display:flex; gap:8px;">
+          <button class="pill-btn" onclick="applyPulse('amorphous')">RESET 펄스 인가 (급랭)</button>
+          <button class="pill-btn" onclick="applyPulse('crystalline')">SET 펄스 인가 (어닐링)</button>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+        <svg class="pulse-diagram" viewBox="0 0 420 180">
+          <line x1="45" y1="35" x2="400" y2="35" stroke="#ef4444" stroke-dasharray="4,4" stroke-width="1"/>
+          <text x="40" y="39" fill="#ef4444" font-size="10" text-anchor="end">Tm (녹는점 ≈600℃)</text>
+
+          <line x1="45" y1="95" x2="400" y2="95" stroke="#10b981" stroke-dasharray="4,4" stroke-width="1"/>
+          <text x="40" y="99" fill="#10b981" font-size="10" text-anchor="end">Tx (결정화 ≈150℃)</text>
+
+          <line x1="45" y1="150" x2="400" y2="150" stroke="#64748b" stroke-width="1"/>
+          <text x="40" y="154" fill="#94a3b8" font-size="10" text-anchor="end">T0 (상온)</text>
+
+          <!-- Axes -->
+          <line x1="45" y1="160" x2="45" y2="20" stroke="#94a3b8" stroke-width="1.5"/>
+          <line x1="45" y1="150" x2="410" y2="150" stroke="#94a3b8" stroke-width="1.5"/>
+
+          <!-- RESET curve -->
+          <path d="M 60 150 L 95 25 L 115 25 L 130 150" fill="none" stroke="#f43f5e" stroke-width="2.5" id="pulseResetLine"/>
+          <!-- SET curve -->
+          <path d="M 170 150 L 205 85 L 320 85 L 350 150" fill="none" stroke="#10b981" stroke-width="2.5" id="pulseSetLine"/>
+
+          <text x="95" y="18" fill="#f43f5e" font-size="10" font-weight="bold">RESET (고온 급랭)</text>
+          <text x="240" y="78" fill="#10b981" font-size="10" font-weight="bold">SET (적정온도 유지 후 서랭)</text>
+        </svg>
+
+        <div style="font-size: 0.82rem; color: #cbd5e1; display:flex; flex-direction:column; justify-content:center; gap:8px;">
+          <div><strong>• RESET (비정질화):</strong> 녹는점(Tm) 이상으로 순간 가열하여 액체화한 뒤, <em>급랭(수 ns 이내)</em>시켜 원자가 규칙적 자리를 잡지 못하게 얼립니다.</div>
+          <div><strong>• SET (결정화):</strong> 결정화 온도(Tx)와 녹는점 사이에서 <em>일정 시간 유지(어닐링)</em>하여 원자가 안정된 규칙 격자를 형성하도록 합니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Virtual Lab: Voltage vs Current (I-V Curve) -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-header">
+        <div class="card-title">⚡ 청중 참여형 가상 탐구 실험대: 전압 인가 & I-V 특성 측정</div>
+        <span id="labStateBadge" style="font-size:11px; padding:3px 8px; border-radius:6px; background:#1e1b4b; color:#a5b4fc;">비정질 측정 중</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:center;">
+        <div>
+          <div class="slider-row">
+            <span style="font-size:0.85rem; font-weight:600;">인가 전압:</span>
+            <input type="range" id="voltsSlider" min="0" max="2.0" step="0.05" value="0.5" oninput="updateVoltage(this.value)">
+            <span id="voltsDisplay" style="font-size:1rem; font-weight:800; font-family:monospace; color:#38bdf8; min-width:55px;">0.50 V</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
+            <div class="stat-box" style="padding:10px;">
+              <div class="stat-label">측정 전류 (I)</div>
+              <div id="currentDisplay" style="font-size:1.15rem; font-weight:800; color:#38bdf8; font-family:monospace;">0.01 mA</div>
+            </div>
+            <div class="stat-box" style="padding:10px;">
+              <div class="stat-label">동적 저항 (R)</div>
+              <div id="resistDisplay" style="font-size:1.15rem; font-weight:800; color:#f59e0b; font-family:monospace;">고저항 (MΩ)</div>
+            </div>
+          </div>
+          <p id="labNote" style="font-size:0.75rem; color:#94a3b8; margin-top:8px;">
+            문턱 전압(Vth ≈ 1.2V) 이하에서는 전류가 흐르지 않다가, 문턱을 넘으면 오보닉 임계 스위칭(OTS)이 발생합니다.
+          </p>
+        </div>
+
+        <svg class="iv-diagram" viewBox="0 0 380 160">
+          <line x1="45" y1="140" x2="360" y2="140" stroke="#334155" stroke-width="1"/>
+          <line x1="45" y1="20" x2="45" y2="140" stroke="#334155" stroke-width="1"/>
+
+          <!-- Vth dotted line -->
+          <line x1="234" y1="20" x2="234" y2="140" stroke="#f59e0b" stroke-dasharray="3,3" stroke-width="1.2"/>
+          <text x="238" y="32" fill="#f59e0b" font-size="8">Vth ≈ 1.2V</text>
+
+          <!-- Axes text -->
+          <text x="360" y="152" fill="#94a3b8" font-size="8" text-anchor="middle">2.0V</text>
+          <text x="45" y="152" fill="#94a3b8" font-size="8" text-anchor="middle">0V</text>
+          <text x="38" y="25" fill="#94a3b8" font-size="8" text-anchor="end">4mA</text>
+
+          <!-- Static Curves -->
+          <line x1="45" y1="140" x2="360" y2="20" stroke="#10b981" stroke-width="2" opacity="0.6"/>
+          <path d="M 45 140 Q 230 140 234 135 L 360 40" fill="none" stroke="#818cf8" stroke-width="2" opacity="0.6"/>
+
+          <!-- Dynamic operating point -->
+          <circle id="opPoint" cx="123" cy="138" r="5" fill="#f43f5e" stroke="#ffffff" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Interactive Quiz -->
+    <h2 class="section-title">📝 청중 즉석 참여 퀴즈</h2>
+    <div class="quiz-card">
+      <div style="font-size:0.9rem; font-weight:700;">Q1. 결정질 GST가 비정질보다 저항이 현저히 낮은 물리적 핵심 이유는?</div>
+      <button class="quiz-opt" onclick="checkQuiz(this, false, 'q1')">① 원자의 크기가 결정질일 때 절반으로 줄어들기 때문</button>
+      <button class="quiz-opt" onclick="checkQuiz(this, true, 'q1')">② 주기적 격자와 p-오비탈 공명 결합으로 전자가 비편재화되기 때문</button>
+      <button class="quiz-opt" onclick="checkQuiz(this, false, 'q1')">③ 결정질 상태가 되면 영하 273℃ 초전도체가 되기 때문</button>
+      <div id="q1Expl" class="explanation" style="display:none;">
+        <strong>💡 정답 해설:</strong> 결정질 GST는 원자 격자의 규칙성과 함께 칼코게나이드계 특유의 p-오비탈 공명 결합(Resonant bonding)에 의해 전자가 널리 퍼져 산란 없이 자유롭게 이동하여 전기 저항이 1,000배 이상 급감합니다.
+      </div>
+    </div>
+
+    <div class="quiz-card">
+      <div style="font-size:0.9rem; font-weight:700;">Q2. "원자 배열이 규칙적이면 모든 물질의 전기 저항이 낮다"는 명제는 옳을까요?</div>
+      <button class="quiz-opt" onclick="checkQuiz(this, false, 'q2')">① 옳다. 원자 배열의 규칙성이 저항을 결정하는 유일한 요소이다.</button>
+      <button class="quiz-opt" onclick="checkQuiz(this, true, 'q2')">② 틀렸다. 다이아몬드는 완벽한 규칙 결정이지만 밴드갭이 커서 절연체이다.</button>
+      <button class="quiz-opt" onclick="checkQuiz(this, false, 'q2')">③ 옳다. 비정질 상태에서는 어떤 물질도 전기가 통할 수 없다.</button>
+      <div id="q2Expl" class="explanation" style="display:none;">
+        <strong>💡 정답 해설:</strong> 물질의 전도도는 원자 배열뿐만 아니라 에너지 밴드갭(Band Gap)과 자유 전자 수에 의해 결정됩니다. 따라서 GST의 특성을 다른 고체 물질로 무분별하게 일반화해서는 안 됩니다.
+      </div>
+    </div>
+
+    <!-- Scientific Disclaimer -->
+    <div class="disclaimer-box">
+      <strong>⚠️ 고등학교 과학적 모델링 한계 및 유의사항:</strong><br>
+      본 시뮬레이션은 실제 GST 결정의 3차원 격자 진동 및 비평형 상태의 전자 수송을 양자역학적으로 계산한 수치 결과가 아니며, 과학적 핵심 원리(상변환에 따른 원자 배열의 규칙성과 전기 저항의 상관관계)를 교실 발표 현장에서 직관적으로 설명하기 위한 교육용 개념 모델(Conceptual Model)입니다.
+    </div>
+
+    <footer>
+      고등학교 2학년 과학적 모델링 탐구 발표 자료 · GST 상변환 메모리 시뮬레이터 (단일 파일 배포판)
+    </footer>
+  </div>
+
+  <script>
+    const species = [
+      'Te', 'Ge', 'Te', 'Sb', 'Te', 'Ge',
+      'Sb', 'Te', 'Ge', 'Te', 'Sb', 'Te',
+      'Te', 'Sb', 'Te', 'Ge', 'Te', 'Sb',
+      'Ge', 'Te', 'Sb', 'Te', 'Ge', 'Te',
+      'Te', 'Ge', 'Te', 'Sb', 'Te', 'Ge',
+      'Sb', 'Te', 'Ge', 'Te', 'Sb', 'Te'
+    ];
+    const colors = { Ge: '#06b6d4', Sb: '#8b5cf6', Te: '#f59e0b' };
+    const offsets = [
+      [-18, 12], [22, -15], [-12, -24], [15, 18], [-26, 8], [14, -20],
+      [20, 16], [-14, -18], [24, -10], [-18, 22], [16, -14], [-22, 10],
+      [-10, -22], [18, 14], [-20, 20], [12, -26], [-16, 12], [24, -18],
+      [14, 24], [-24, -12], [18, -20], [-12, 16], [22, 14], [-16, -22],
+      [-22, 14], [16, -16], [-14, 22], [20, -12], [-18, -18], [14, 20],
+      [12, -18], [-20, 16], [18, 22], [-16, -14], [22, -16], [-14, 18]
+    ];
+
+    let currentState = 'amorphous';
+    let currentFilter = 'all';
+    let showElectrons = true;
+    let voltage = 0.5;
+
+    const atoms = [];
+    for (let i = 0; i < 36; i++) {
+      const r = Math.floor(i / 6);
+      const c = i % 6;
+      const cx = 75 + c * 70;
+      const cy = 75 + r * 70;
+      const ax = Math.max(45, Math.min(455, cx + offsets[i][0] * 1.3));
+      const ay = Math.max(45, Math.min(455, cy + offsets[i][1] * 1.3));
+      atoms.push({ id: i, type: species[i], cx, cy, ax, ay });
+    }
+
+    // Electron particles
+    const particles = Array.from({ length: 16 }, (_, i) => ({
+      x: 35 + Math.random() * 20,
+      y: 70 + (i % 6) * 70 + (Math.random() - 0.5) * 20,
+      vx: 1.2,
+      vy: 0
+    }));
+
+    const svg = document.getElementById('atomicCanvas');
+
+    function render() {
+      svg.innerHTML = '';
+      const isCryst = currentState === 'crystalline';
+
+      // Bonds
+      if (isCryst) {
+        for (let r = 0; r < 6; r++) {
+          for (let c = 0; c < 6; c++) {
+            const idx = r * 6 + c;
+            if (c < 5) drawLine(atoms[idx].cx, atoms[idx].cy, atoms[idx + 1].cx, atoms[idx + 1].cy, '#38bdf8', 2);
+            if (r < 5) drawLine(atoms[idx].cx, atoms[idx].cy, atoms[idx + 6].cx, atoms[idx + 6].cy, '#38bdf8', 2);
+          }
+        }
+      } else {
+        for (let i = 0; i < atoms.length; i++) {
+          for (let j = i + 1; j < atoms.length; j++) {
+            const dx = atoms[i].ax - atoms[j].ax;
+            const dy = atoms[i].ay - atoms[j].ay;
+            if (Math.hypot(dx, dy) <= 78) {
+              drawLine(atoms[i].ax, atoms[i].ay, atoms[j].ax, atoms[j].ay, '#64748b', 1.5, '4,3');
+            }
+          }
+        }
+      }
+
+      // Atoms
+      atoms.forEach(a => {
+        const x = isCryst ? a.cx : a.ax;
+        const y = isCryst ? a.cy : a.ay;
+        const color = colors[a.type];
+        const isDim = currentFilter !== 'all' && currentFilter !== a.type;
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('transform', `translate(${x}, ${y})`);
+        g.style.cursor = 'pointer';
+        if (isDim) g.style.opacity = '0.2';
+
+        const c1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c1.setAttribute('r', '15');
+        c1.setAttribute('fill', color);
+        c1.setAttribute('stroke', '#0f172a');
+        c1.setAttribute('stroke-width', '2');
+
+        const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txt.setAttribute('text-anchor', 'middle');
+        txt.setAttribute('y', '4');
+        txt.setAttribute('fill', '#ffffff');
+        txt.setAttribute('font-size', '10');
+        txt.setAttribute('font-weight', 'bold');
+        txt.textContent = a.type;
+
+        g.appendChild(c1);
+        g.appendChild(txt);
+
+        g.onclick = () => {
+          alert(a.type + ' 원자 상세 정보:\n' +
+                '상태: ' + (isCryst ? '결정질 (Crystalline)' : '비정질 (Amorphous)') + '\n' +
+                '배위수: ' + (isCryst ? '6배위 (팔면체 대칭)' : '3~4배위 (사면체/피라미드)') + '\n' +
+                '결합: ' + (isCryst ? 'p-오비탈 공명 결합 (비편재화)' : '국재화된 공유 결합'));
+        };
+
+        svg.appendChild(g);
+      });
+
+      // Electron particles
+      if (showElectrons) {
+        particles.forEach(p => {
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', p.x);
+          circle.setAttribute('cy', p.y);
+          circle.setAttribute('r', '3');
+          circle.setAttribute('fill', '#facc15');
+          svg.appendChild(circle);
+        });
+      }
+    }
+
+    function drawLine(x1, y1, x2, y2, stroke, width, dash = '') {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+      line.setAttribute('stroke', stroke);
+      line.setAttribute('stroke-width', width);
+      line.setAttribute('opacity', '0.6');
+      if (dash) line.setAttribute('stroke-dasharray', dash);
+      svg.appendChild(line);
+    }
+
+    function animElectrons() {
+      if (showElectrons) {
+        particles.forEach(p => {
+          if (currentState === 'crystalline') {
+            p.x += 2.8;
+            p.y += (Math.random() - 0.5) * 0.4;
+          } else {
+            p.x += 1.0;
+            p.y += (Math.random() - 0.5) * 2.2;
+          }
+
+          if (p.x > 465) {
+            p.x = 35;
+            p.y = 70 + Math.random() * 350;
+          }
+          if (p.y < 50) p.y = 50;
+          if (p.y > 450) p.y = 450;
+        });
+        render();
+      }
+      requestAnimationFrame(animElectrons);
+    }
+    requestAnimationFrame(animElectrons);
+
+    function setState(newState) {
+      currentState = newState;
+      const isAmorph = newState === 'amorphous';
+      document.getElementById('btnAmorph').className = isAmorph ? 'state-btn active-amorph' : 'state-btn';
+      document.getElementById('btnCryst').className = !isAmorph ? 'state-btn active-cryst' : 'state-btn';
+
+      document.getElementById('statOrder').textContent = isAmorph ? '불규칙함 (Disordered)' : '규칙적임 (Ordered)';
+      document.getElementById('statOrder').style.color = isAmorph ? '#a5b4fc' : '#6ee7b7';
+      document.getElementById('descOrder').textContent = isAmorph
+        ? '원자들이 얽혀 장거리 주기성이 파괴되어 있으며 국재화된 결합을 형성합니다.'
+        : '원자들이 3차원 주기 격자를 이루며 장거리 규칙성을 완벽하게 유지합니다.';
+
+      document.getElementById('statResist').textContent = isAmorph ? '매우 높음 (High R)' : '매우 낮음 (Low R)';
+      document.getElementById('statResist').style.color = isAmorph ? '#f59e0b' : '#34d399';
+      document.getElementById('descResist').textContent = isAmorph
+        ? '국재화된 공유 결합과 트랩 준위로 전자가 산란되어 전류가 거의 흐르지 않습니다.'
+        : '비편재화된 공명 결합으로 전자 전도 경로가 확보되어 전류가 매우 쉽게 흐릅니다.';
+
+      document.getElementById('statBit').textContent = isAmorph ? "'0' (RESET)" : "'1' (SET)";
+      document.getElementById('descBit').textContent = isAmorph
+        ? '전류가 거의 흐르지 않는 고저항 오프(OFF) 상태를 2진수 0으로 저장합니다.'
+        : '전류가 쉽게 흐르는 저저항 온(ON) 상태를 2진수 1로 저장합니다.';
+
+      document.getElementById('descBond').textContent = isAmorph
+        ? '국재화된 공유 결합(Localized Covalent): 전자가 특정 원자 사이에 갇혀 자유로운 전도가 제한됨.'
+        : 'p-오비탈 공명 결합(Resonant Bonding): 전자가 넓은 범위로 퍼져(비편재화) 낮은 저항을 나타냄.';
+
+      document.getElementById('labStateBadge').textContent = isAmorph ? '비정질 측정 중' : '결정질 측정 중';
+      document.getElementById('labStateBadge').style.background = isAmorph ? '#1e1b4b' : '#022c22';
+      document.getElementById('labStateBadge').style.color = isAmorph ? '#a5b4fc' : '#6ee7b7';
+
+      updateVoltage(voltage);
+      render();
+    }
+
+    function setFilter(elem, btn) {
+      currentFilter = elem;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function toggleElectrons() {
+      showElectrons = !showElectrons;
+      const btn = document.getElementById('btnElectron');
+      btn.textContent = showElectrons ? '⚡ 전자 흐름 가시화: ON' : '⚡ 전자 흐름 가시화: OFF';
+      btn.classList.toggle('active', showElectrons);
+      render();
+    }
+
+    function applyPulse(target) {
+      setState(target);
+      alert((target === 'amorphous' ? 'RESET 열 펄스 인가!' : 'SET 열 펄스 인가!') +
+            '\n' + (target === 'amorphous' ? 'Tm 이상으로 순간 가열 후 급랭하여 비정질(0)로 변환되었습니다.' : 'Tx 이상 Tm 이하에서 어닐링하여 결정질(1)로 변환되었습니다.'));
+    }
+
+    function updateVoltage(val) {
+      voltage = parseFloat(val);
+      document.getElementById('voltsDisplay').textContent = voltage.toFixed(2) + ' V';
+
+      const isCryst = currentState === 'crystalline';
+      let i_mA = 0;
+      let r_str = '';
+
+      if (isCryst) {
+        i_mA = voltage * 2.0;
+        r_str = '약 500 Ω (낮음)';
+      } else {
+        if (voltage < 1.15) {
+          i_mA = (Math.exp(voltage * 2.5) - 1) * 0.005;
+          r_str = '약 5 MΩ (높음)';
+        } else {
+          i_mA = 0.05 + (voltage - 1.15) * 2.8;
+          r_str = '임계 스위칭 급감';
+        }
+      }
+
+      document.getElementById('currentDisplay').textContent = i_mA < 0.1 ? (i_mA * 1000).toFixed(0) + ' µA' : i_mA.toFixed(2) + ' mA';
+      document.getElementById('resistDisplay').textContent = r_str;
+
+      // Update dot on graph
+      const opX = 45 + (voltage / 2.0) * 315;
+      const opY = 140 - (Math.min(i_mA, 4.0) / 4.0) * 120;
+      const op = document.getElementById('opPoint');
+      op.setAttribute('cx', opX);
+      op.setAttribute('cy', opY);
+    }
+
+    function checkQuiz(btn, isCorrect, qId) {
+      const parent = btn.parentElement;
+      parent.querySelectorAll('.quiz-opt').forEach(b => {
+        b.disabled = true;
+      });
+      btn.classList.add(isCorrect ? 'correct' : 'wrong');
+      document.getElementById(qId + 'Expl').style.display = 'block';
+    }
+
+    render();
+    updateVoltage(0.5);
+  </script>
+</body>
+</html>
